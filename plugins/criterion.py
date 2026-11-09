@@ -3,6 +3,7 @@ from utils.base_plugin import ListScraper
 import bs4
 import requests
 from loguru import logger
+from utils import imdb_datasets
 #from requests_cache import CachedSession, FileCache
 
 class CriterionChannel(ListScraper):
@@ -27,4 +28,6 @@ class CriterionChannel(ListScraper):
                 "release_year": year,
                 "media_type": "movie"
             })
+        # The page has no ids: look them up so matching works with localized titles
+        imdb_datasets.resolve_imdb_ids(items)
         return {'name': list_name, 'items': items, "description": description}

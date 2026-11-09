@@ -3,6 +3,7 @@ from loguru import logger
 from letterboxdpy.list import List
 from letterboxdpy.watchlist import Watchlist
 from letterboxdpy.pages.movie_profile import MovieProfile
+from utils import imdb_datasets
 import json
 import os
 
@@ -137,6 +138,9 @@ class Letterboxd(ListScraper):
         if cache_updated:
             Letterboxd._save_cache(cache)
             logger.info(f"Cache updated with new movie details")
+
+        # Fill in ids that Letterboxd did not provide (cheap: offline datasets, cached)
+        imdb_datasets.resolve_imdb_ids(movies)
 
         return {'name': list_name, 'items': movies, "description": description}
 

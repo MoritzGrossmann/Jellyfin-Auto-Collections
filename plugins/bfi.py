@@ -4,6 +4,7 @@ from utils.base_plugin import ListScraper
 import bs4
 import requests
 from loguru import logger
+from utils import imdb_datasets
 
 class BFI(ListScraper):
 
@@ -39,6 +40,9 @@ class BFI(ListScraper):
                     "release_year": year,
                     "media_type": "Movie"
                 })
+
+        # The list only has title + year: look up IMDb ids so matching works with localized titles
+        imdb_datasets.resolve_imdb_ids(items)
 
         return {
             "name": list_name,
