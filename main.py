@@ -81,6 +81,10 @@ def main(config):
                     logger.exception(f"Failed processing list {list_id}:" + str(e))
                     continue
 
+                if not list_info:
+                    logger.error(f"Could not get list {list_id} from plugin {plugin_name} (blocked or unavailable) - skipping")
+                    continue
+
                 # Find jellyfin collection or create it
                 collection_id = jf_client.find_collection_with_name_or_create(
                     list_name or list_info['name'],
