@@ -1,4 +1,4 @@
-FROM python:3.10-slim AS base
+FROM python:3.10-slim-bookworm AS base
 
 LABEL org.opencontainers.image.source https://github.com/MoritzGrossmann/jellyfin-auto-collections
 
