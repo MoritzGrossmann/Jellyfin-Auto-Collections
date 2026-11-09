@@ -11,8 +11,10 @@ import csv
 import gzip
 import json
 import os
+import re
 import tempfile
 import time
+import unicodedata
 
 import requests
 from loguru import logger
@@ -76,6 +78,87 @@ def _build_chart(types, limit=250):
         {'title': t[2], 'release_year': t[3], 'media_type': t[1], 'imdb_id': t[0]}
         for t in eligible[:limit]
     ]
+
+
+def _normalize(title):
+    """Lowercase, strip accents and everything but letters/digits for tolerant title comparison."""
+    title = unicodedata.normalize('NFKD', title or '')
+    title = ''.join(c for c in title if not unicodedata.combining(c))
+    return re.sub(r'[^a-z0-9]', '', title.lower())
+
+
+def resolve_imdb_ids(items, types=('movie', 'tvMovie')):
+    """Adds an 'imdb_id' to items that only have title + release_year.
+
+    Looks the (original/primary title, year) pair up in the official IMDb datasets.
+    The year may be off by one (list sources and IMDb often disagree); among several
+    candidates the one with the most votes wins. Items that cannot be resolved are left
+    untouched so the caller can fall back to title matching. Results (including misses)
+    are cached on disk so the datasets are only downloaded for unseen items.
+    """
+    cache_file = os.path.join(CACHE_DIR, 'resolved_ids.json')
+    cache = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, encoding='utf-8') as f:
+                cache = json.load(f)
+        except (OSError, ValueError):
+            cache = {}
+
+    def key_of(item):
+        year = str(item.get('release_year') or '')
+        return f"{_normalize(item.get('title'))}|{year}" if year.isdigit() and _normalize(item.get('title')) else None
+
+    pending = {}
+    for item in items:
+        key = key_of(item)
+        if key and not item.get('imdb_id') and key not in cache:
+            pending[key] = item
+
+    if pending:
+        wanted = {k.split('|')[0] for k in pending}
+        candidates = {}  # normalized title -> [(year, tconst)]
+        try:
+            logger.info(f"Resolving {len(pending)} IMDb ids from the official datasets (first run downloads ~150 MB)")
+            for row in csv.reader(_download('title.basics.tsv.gz'), delimiter='\t', quoting=csv.QUOTE_NONE):
+                if len(row) < 6 or row[1] not in types or not row[5].isdigit():
+                    continue
+                for name in {_normalize(row[2]), _normalize(row[3])}:
+                    if name in wanted:
+                        candidates.setdefault(name, []).append((int(row[5]), row[0]))
+            needed = {tconst for lst in candidates.values() for _, tconst in lst}
+            votes = {}
+            for row in csv.reader(_download('title.ratings.tsv.gz'), delimiter='\t'):
+                if row[0] in needed:
+                    votes[row[0]] = int(row[2])
+        except requests.RequestException as e:
+            logger.warning(f"Could not download IMDb datasets to resolve ids: {e}")
+            pending = {}
+
+        for key in pending:
+            name, year = key.split('|')
+            year = int(year)
+            best = None
+            for tolerance in (0, 1):
+                matches = [t for y, t in candidates.get(name, []) if abs(y - year) == tolerance]
+                if matches:
+                    best = max(matches, key=lambda t: votes.get(t, 0))
+                    break
+            cache[key] = best
+
+        if pending:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache, f)
+
+    resolved = 0
+    for item in items:
+        key = key_of(item)
+        if key and not item.get('imdb_id') and cache.get(key):
+            item['imdb_id'] = cache[key]
+            resolved += 1
+    logger.info(f"Resolved IMDb ids for {resolved}/{len(items)} items")
+    return items
 
 
 def get_chart(chart_id):

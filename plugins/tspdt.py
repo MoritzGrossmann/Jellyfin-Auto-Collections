@@ -2,6 +2,7 @@ import json
 from utils.base_plugin import ListScraper
 import bs4
 import requests
+from utils import imdb_datasets
 
 class TSPDT(ListScraper):
 
@@ -21,4 +22,6 @@ class TSPDT(ListScraper):
                     movie_title = suffix + " " + movie_title[:-len(suffix)-2]
             movie_year = values[4].text
             movies.append({'title': movie_title, 'release_year': movie_year, 'media_type': 'movie'})
+        # The table has no ids: look them up so matching works with localized Jellyfin titles
+        imdb_datasets.resolve_imdb_ids(movies)
         return {'name': "TSPDT Top 1000 Greatest", 'items': movies, "description": "Compiled from 16,000+ film lists and ballots, The TSPDT 1,000 Greatest Films is quite possibly the most definitive collection of the most critically acclaimed films you will find."}
