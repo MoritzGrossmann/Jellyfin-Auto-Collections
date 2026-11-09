@@ -37,12 +37,12 @@ Can't find Ménilmontant
 - Letterboxd - e.g. [Movies everyone should watch at least once...](https://letterboxd.com/fcbarcelona/list/movies-everyone-should-watch-at-least-once)
 - mdblist - e.g. [Top Movies of the week](https://mdblist.com/lists/garycrawfordgc/top-movies-of-the-week)
 - They Shoot Pictures, Don't They - [The 1,000 Greatest Films](https://www.theyshootpictures.com/gf1000_all1000films_table.php)
-- Trakt - e.g. [Popular Movies](https://trakt.tv/movies/popular). See the [Wiki](https://github.com/ghomasHudson/Jellyfin-Auto-Collections/wiki/Plugin-%E2%80%90-Trakt) for instructions.
+- Trakt - e.g. [Popular Movies](https://trakt.tv/movies/popular). See the [Wiki](https://github.com/MoritzGrossmann/Jellyfin-Auto-Collections/wiki/Plugin-%E2%80%90-Trakt) for instructions.
 - [Steven Lu Popular movies](https://github.com/sjlu/popular-movies)
 - [The Criterion Channel](https://www.criterionchannel.com/new-collections)
 - [Listmania](https://www.listmania.org)
 - [BFI](https://www.bfi.org.uk/articles/type/lists)
-- Jellyfin API Queries - Make lists which match a particular filter from the [Jellyfin API](https://api.jellyfin.org/). See the [Wiki](https://github.com/ghomasHudson/Jellyfin-Auto-Collections/wiki/Plugin-%E2%80%90-Jellyfin-API) for some usage examples.
+- Jellyfin API Queries - Make lists which match a particular filter from the [Jellyfin API](https://api.jellyfin.org/). See the [Wiki](https://github.com/MoritzGrossmann/Jellyfin-Auto-Collections/wiki/Plugin-%E2%80%90-Jellyfin-API) for some usage examples.
 - Radarr/Sonarr - Make collections from your *arr tags.
 
 Please feel free to send pull requests with more!
@@ -66,7 +66,7 @@ The easiest way to get going is to use the provided `docker-compose.yml` configu
 ```yaml
 services:
   jellyfin-auto-collections:
-    image: ghcr.io/ghomashudson/jellyfin-auto-collections:latest
+    image: ghcr.io/MoritzGrossmann/jellyfin-auto-collections:latest
     container_name: jellyfin-auto-collections
     environment:
       - CRONTAB=0 0 * * *
