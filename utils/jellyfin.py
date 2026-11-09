@@ -151,49 +151,94 @@ class JellyfinClient:
         r = requests.post(f"{self.server_url}/Items/{collection_id}/Images/Primary", headers=headers, data=encoded_data)
 
 
+    def _get_imdb_index(self, include_item_types, jellyfin_query_parameters):
+        '''Returns a cached {imdb_id: jellyfin item} dict for all library items of the given types.'''
+        cache_key = json.dumps([include_item_types, jellyfin_query_parameters], sort_keys=True, default=str)
+        if not hasattr(self, "_imdb_index_cache"):
+            self._imdb_index_cache = {}
+        if cache_key in self._imdb_index_cache:
+            return self._imdb_index_cache[cache_key]
+
+        params = {
+            "enableTotalRecordCount": "false",
+            "enableImages": "false",
+            "Recursive": "true",
+            "IncludeItemTypes": include_item_types,
+            "fields": ["ProviderIds", "ProductionYear"],
+            "userId": self.user_id
+        }
+        params = {**params, **jellyfin_query_parameters}
+        params.pop("searchTerm", None)
+
+        logger.info("Building IMDb id index of the Jellyfin library...")
+        res = requests.get(f'{self.server_url}/Items', headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'}, params=params)
+        index = {}
+        for result in res.json().get("Items", []):
+            imdb_id = (result.get("ProviderIds") or {}).get("Imdb")
+            if imdb_id:
+                index.setdefault(imdb_id, result)
+        logger.info(f"Indexed {len(index)} library items with an IMDb id")
+
+        self._imdb_index_cache[cache_key] = index
+        return index
+
     def add_item_to_collection(self, collection_id: str, item, year_filter: bool = True, jellyfin_query_parameters={}):
         '''Adds an item to a collection based on item name and release year'''
 
         item["media_type"] = self.imdb_to_jellyfin_type_map.get(item["media_type"], item["media_type"])
         item["title"] = html.unescape(item["title"])
 
-        params = {
-            "enableTotalRecordCount": "false",
-            "enableImages": "false",
-            "Recursive": "true",
-            "IncludeItemTypes": item["media_type"],
-            "searchTerm": item["title"],
-            "fields": ["ProviderIds", "ProductionYear"],
-            "userId": self.user_id
-        }
-
-        params = {**params, **jellyfin_query_parameters}
-
-        res = requests.get(f'{self.server_url}/Items',headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'}, params=params)
-
-        # Check if there's an exact imdb_id match first
         match = None
-        if "imdb_id" in item:
-            for result in res.json()["Items"]:
-                if result["ProviderIds"].get("Imdb", None) == item["imdb_id"]:
-                    match = result
-                    break
-        else:
-            # Check if there's a year match
-            if match is None and year_filter:
-                for result in res.json()["Items"]:
-                    if str(result.get("ProductionYear", None)) == str(item["release_year"]):
+        candidates = []
+
+        # 1. Exact IMDb id match against the whole library. This does not depend on the
+        #    title, so it also works when Jellyfin stores localized titles (e.g. German).
+        if item.get("imdb_id"):
+            index = self._get_imdb_index(item["media_type"], jellyfin_query_parameters)
+            match = index.get(item["imdb_id"])
+
+        # 2. Fallback: title search (matches by year, or the single search result)
+        if match is None:
+            params = {
+                "enableTotalRecordCount": "false",
+                "enableImages": "false",
+                "Recursive": "true",
+                "IncludeItemTypes": item["media_type"],
+                "searchTerm": item["title"],
+                "fields": ["ProviderIds", "ProductionYear"],
+                "userId": self.user_id
+            }
+
+            params = {**params, **jellyfin_query_parameters}
+
+            res = requests.get(f'{self.server_url}/Items',headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'}, params=params)
+            candidates = res.json()["Items"]
+
+            if item.get("imdb_id"):
+                # Only accept candidates that cannot be a different film: same year and
+                # no conflicting IMDb id.
+                for result in candidates:
+                    result_imdb = result.get("ProviderIds", {}).get("Imdb")
+                    if result_imdb and result_imdb != item["imdb_id"]:
+                        continue
+                    if str(result.get("ProductionYear", None)) == str(item.get("release_year")):
                         match = result
                         break
+            else:
+                if year_filter:
+                    for result in candidates:
+                        if str(result.get("ProductionYear", None)) == str(item["release_year"]):
+                            match = result
+                            break
 
-            # Otherwise, just take the first result
-            if match is None and len(res.json()["Items"]) == 1:
-                match = res.json()["Items"][0]
+                # Otherwise, just take the first result
+                if match is None and len(candidates) == 1:
+                    match = candidates[0]
 
         if match is None:
             logger.warning(f"Item {item['title']} ({item.get('release_year','N/A')}) {item.get('imdb_id','')} not found in jellyfin")
             logger.debug(f"List Candidate: {item}")
-            logger.debug(f"JF Search: {res.json()['Items']}")
+            logger.debug(f"JF Search: {candidates}")
             return False
         else:
             try:
