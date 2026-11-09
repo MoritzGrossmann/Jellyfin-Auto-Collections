@@ -66,7 +66,7 @@ The easiest way to get going is to use the provided `docker-compose.yml` configu
 ```yaml
 services:
   jellyfin-auto-collections:
-    image: ghcr.io/MoritzGrossmann/jellyfin-auto-collections:latest
+    image: ghcr.io/moritzgrossmann/jellyfin-auto-collections:latest
     container_name: jellyfin-auto-collections
     environment:
       - CRONTAB=0 0 * * *
