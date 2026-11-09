@@ -9,8 +9,6 @@ FROM base AS build
 WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
-# Chromium (+ system dependencies) for the headless browser used by the IMDb plugins
-RUN playwright install --with-deps chromium
 COPY . .
 
 FROM build AS final
