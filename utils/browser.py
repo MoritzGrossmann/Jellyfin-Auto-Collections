@@ -11,7 +11,7 @@ class HeadlessBrowser:
 
     def __enter__(self):
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=True)
+        self._browser = self._playwright.chromium.launch(headless=False)
         self._context = self._browser.new_context(
             user_agent=USER_AGENT,
             locale='en-US',
