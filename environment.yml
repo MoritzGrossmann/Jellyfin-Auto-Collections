@@ -1,0 +1,6 @@
+# environment.yml
+name: jellyfin-auto-collections
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
